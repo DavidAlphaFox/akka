@@ -19,6 +19,10 @@ import com.typesafe.config.Config
 /**
  * INTERNAL API
  */
+// object一般做为类伴生对象存在
+// 此处是Maibox的伴生对象
+// 定义常量
+// 定义类型
 private[akka] object Mailbox {
 
   type Status = Int
@@ -26,7 +30,8 @@ private[akka] object Mailbox {
   /*
    * The following assigned numbers CANNOT be changed without looking at the code which uses them!
    */
-
+// Mailbox的主要状态
+/**/
   // Primary status
   final val Open = 0 // _status is not initialized in AbstractMailbox, so default must be zero! Deliberately without type ascription to make it a compile-time constant
   final val Closed = 1 // Deliberately without type ascription to make it a compile-time constant
