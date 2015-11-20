@@ -393,6 +393,7 @@ private[akka] class ActorCell(
   def actor: Actor = _actor
   protected def actor_=(a: Actor): Unit = _actor = a
   var currentMessage: Envelope = _
+  // 每个ActorCell都会有一个stack用来保存context.become时，用来保存消息处理的处理类
   private var behaviorStack: List[Actor.Receive] = emptyBehaviorStack
   private[this] var sysmsgStash: LatestFirstSystemMessageList = SystemMessageList.LNil
 

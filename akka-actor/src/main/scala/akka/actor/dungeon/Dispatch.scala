@@ -107,7 +107,7 @@ private[akka] trait Dispatch { this: ActorCell ⇒
 
   // ➡➡➡ NEVER SEND THE SAME SYSTEM MESSAGE OBJECT TO TWO ACTORS ⬅⬅⬅
   final def stop(): Unit = try dispatcher.systemDispatch(this, Terminate()) catch handleException
-
+//使用trait的书写顺序覆盖Cell中的sendMessage
   def sendMessage(msg: Envelope): Unit =
     try {
       if (system.settings.SerializeAllMessages) {

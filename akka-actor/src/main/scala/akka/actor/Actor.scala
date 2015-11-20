@@ -321,12 +321,13 @@ trait DiagnosticActorLogging extends Actor {
     log.clearMDC()
   }
 }
-
+// Actor的伴生对象
 object Actor {
   /**
    * Type alias representing a Receive-expression for Akka Actors.
    */
   //#receive
+  // 定义Receive 类型
   type Receive = PartialFunction[Any, Unit]
 
   //#receive

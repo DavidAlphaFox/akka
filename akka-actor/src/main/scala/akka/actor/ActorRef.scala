@@ -380,7 +380,9 @@ private[akka] class LocalActorRef private[akka] (
   def underlying: ActorCell = actorCell
 
   override def sendSystemMessage(message: SystemMessage): Unit = actorCell.sendSystemMessage(message)
-
+  //使用 override 覆盖原发送方法
+  //默认的sender为noSender
+  //实际上使用ActorCell的sendMessage将消息放到目标的邮箱当中
   override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = actorCell.sendMessage(message, sender)
 
   override def restart(cause: Throwable): Unit = actorCell.restart(cause)
