@@ -76,6 +76,7 @@ trait ExtensionId[T <: Extension] {
   /**
    * Returns an instance of the extension identified by this ExtensionId instance.
    */
+  //向Actor系统注册自己
   def apply(system: ActorSystem): T = system.registerExtension(this)
 
   /**

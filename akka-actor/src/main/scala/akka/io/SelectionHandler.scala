@@ -64,7 +64,7 @@ private[io] object SelectionHandler {
   trait HasFailureMessage {
     def failureMessage: Any
   }
-
+  //这里面的childProps是函数
   case class WorkerForCommand(apiCommand: HasFailureMessage, commander: ActorRef, childProps: ChannelRegistry ⇒ Props)
     extends NoSerializationVerificationNeeded
 
@@ -74,17 +74,19 @@ private[io] object SelectionHandler {
   case object ChannelAcceptable
   case object ChannelReadable
   case object ChannelWritable
-
+  // 创建基于selector的Manager
   private[io] abstract class SelectorBasedManager(selectorSettings: SelectionHandlerSettings, nrOfSelectors: Int) extends Actor {
 
     override def supervisorStrategy = connectionSupervisorStrategy
-
+    // 使用RandomRouter挡在SelectionHandler的Actor的前面
     val selectorPool = context.actorOf(
       props = RandomRouter(nrOfSelectors).props(Props(classOf[SelectionHandler], selectorSettings)).withDeploy(Deploy.local),
       name = "selectors")
-
+    // 此处拦截消息
+    // 接收一个函数作为参数，使用的是PartialFunction，参数类型HasFailureMessage，输出类型ChannelRegistry ⇒ Props
     final def workerForCommandHandler(pf: PartialFunction[HasFailureMessage, ChannelRegistry ⇒ Props]): Receive = {
-      case cmd: HasFailureMessage if pf.isDefinedAt(cmd) ⇒ selectorPool ! WorkerForCommand(cmd, sender(), pf(cmd))
+      case cmd: HasFailureMessage if pf.isDefinedAt(cmd) ⇒
+        selectorPool ! WorkerForCommand(cmd, sender(), pf(cmd))
     }
   }
 
@@ -104,11 +106,12 @@ private[io] object SelectionHandler {
     }
 
   private class ChannelRegistryImpl(executionContext: ExecutionContext, log: LoggingAdapter) extends ChannelRegistry {
+    //创建selector
     private[this] val selector = SelectorProvider.provider.openSelector
     private[this] val wakeUp = new AtomicBoolean(false)
 
     final val OP_READ_AND_WRITE = OP_READ | OP_WRITE // compile-time constant
-
+    // 将selector的轮训，作为一个任务
     private[this] val select = new Task {
       def tryRun(): Unit = {
         if (selector.select() > 0) { // This assumes select return value == selectedKeys.size
@@ -143,11 +146,13 @@ private[io] object SelectionHandler {
       }
 
       override def run(): Unit =
+        // 如果selector是打开的
+        // 立刻进行执行，并且保证执行之后，在次将自己投递到任务队列上
         if (selector.isOpen)
           try super.run()
           finally executionContext.execute(this) // re-schedule select behind all currently queued tasks
     }
-
+    // 该类创建的时候，就开始进入loop状态
     executionContext.execute(select) // start selection "loop"
 
     def register(channel: SelectableChannel, initialOps: Int)(implicit channelActor: ActorRef): Unit =
@@ -229,8 +234,12 @@ private[io] class SelectionHandler(settings: SelectionHandlerSettings) extends A
 
   private[this] var sequenceNumber = 0
   private[this] var childCount = 0
+  // 此处为匿名函数
+  // 并且只初始化一次
   private[this] val registry = {
+    // 从系统中找出SelectorDispatcher
     val dispatcher = context.system.dispatchers.lookup(SelectorDispatcher)
+    // 创建一个ChannelRegistryImpl实例，作为返回值
     new ChannelRegistryImpl(SerializedSuspendableExecutionContext(dispatcher.throughput)(dispatcher), log)
   }
 
@@ -270,7 +279,7 @@ private[io] class SelectionHandler(settings: SelectionHandlerSettings) extends A
         } catch { case NonFatal(_) ⇒ }
     }
   }
-
+  // 创建子Actor
   def spawnChildWithCapacityProtection(cmd: WorkerForCommand, retriesLeft: Int): Unit = {
     if (TraceLogging) log.debug("Executing [{}]", cmd)
     if (MaxChannelsPerSelector == -1 || childCount < MaxChannelsPerSelector) {

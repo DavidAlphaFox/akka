@@ -50,10 +50,14 @@ private[io] class TcpManager(tcp: TcpExt)
   def receive = workerForCommandHandler {
     case c: Connect ⇒
       val commander = sender() // cache because we create a function that will run asyncly
+      // 此处返回的是函数
+      // 参数是ChannelRegistry的实例registry
       (registry ⇒ Props(classOf[TcpOutgoingConnection], tcp, registry, commander, c))
 
     case b: Bind ⇒
       val commander = sender() // cache because we create a function that will run asyncly
+      // 此处返回的是函数
+      // 参数是ChannelRegistry的实例registry
       (registry ⇒ Props(classOf[TcpListener], selectorPool, tcp, registry, commander, b))
   }
 

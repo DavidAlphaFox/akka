@@ -561,6 +561,8 @@ class TcpExt(system: ExtendedActorSystem) extends IO.Extension {
   /**
    *
    */
+
+  // 创建TCPManager的Actor
   val manager: ActorRef = {
     system.systemActorOf(
       props = Props(classOf[TcpManager], this).withDispatcher(Settings.ManagementDispatcher).withDeploy(Deploy.local),

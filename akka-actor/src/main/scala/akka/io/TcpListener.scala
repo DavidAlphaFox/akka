@@ -29,6 +29,7 @@ private[io] object TcpListener {
 /**
  * INTERNAL API
  */
+// 监听者类
 private[io] class TcpListener(selectorRouter: ActorRef,
                               tcp: TcpExt,
                               channelRegistry: ChannelRegistry,
@@ -38,9 +39,9 @@ private[io] class TcpListener(selectorRouter: ActorRef,
 
   import TcpListener._
   import tcp.Settings._
-
+  // 监控调用者的Actor
   context.watch(bind.handler) // sign death pact
-
+  // 创建channel
   val channel = ServerSocketChannel.open
   channel.configureBlocking(false)
 
@@ -55,6 +56,7 @@ private[io] class TcpListener(selectorRouter: ActorRef,
         case isa: InetSocketAddress ⇒ isa
         case x                      ⇒ throw new IllegalArgumentException(s"bound to unknown SocketAddress [$x]")
       }
+      // 向selector注册channel是可以Accepted的
       channelRegistry.register(channel, if (bind.pullMode) 0 else SelectionKey.OP_ACCEPT)
       log.debug("Successfully bound to {}", ret)
       ret
@@ -69,7 +71,9 @@ private[io] class TcpListener(selectorRouter: ActorRef,
 
   def receive: Receive = {
     case registration: ChannelRegistration ⇒
+      // 告诉绑定的Actor
       bindCommander ! Bound(channel.socket.getLocalSocketAddress.asInstanceOf[InetSocketAddress])
+      // 将自己切换到bound状态
       context.become(bound(registration))
   }
 

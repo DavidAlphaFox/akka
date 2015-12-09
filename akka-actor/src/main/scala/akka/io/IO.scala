@@ -17,6 +17,7 @@ import akka.event.Logging
  */
 object IO {
 
+  // 扩充Actor基础的Extension
   trait Extension extends akka.actor.Extension {
     def manager: ActorRef
   }

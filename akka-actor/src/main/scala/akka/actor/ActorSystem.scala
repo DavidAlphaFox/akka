@@ -421,6 +421,7 @@ abstract class ActorSystem extends ActorRefFactory {
    * This method has putIfAbsent-semantics, this method can potentially block, waiting for the initialization
    * of the payload, if is in the process of registration from another Thread of execution
    */
+  // 返回Extension向下转型的类
   def registerExtension[T <: Extension](ext: ExtensionId[T]): T
 
   /**
