@@ -79,6 +79,7 @@ private[io] object SelectionHandler {
 
     override def supervisorStrategy = connectionSupervisorStrategy
     // 使用RandomRouter挡在SelectionHandler的Actor的前面
+    // 这样就能实现多个Selector
     val selectorPool = context.actorOf(
       props = RandomRouter(nrOfSelectors).props(Props(classOf[SelectionHandler], selectorSettings)).withDeploy(Deploy.local),
       name = "selectors")

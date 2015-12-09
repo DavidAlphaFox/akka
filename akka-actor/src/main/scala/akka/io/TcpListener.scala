@@ -44,7 +44,7 @@ private[io] class TcpListener(selectorRouter: ActorRef,
   // 创建channel
   val channel = ServerSocketChannel.open
   channel.configureBlocking(false)
-
+  // 默认是批量接受链接
   var acceptLimit = if (bind.pullMode) 0 else BatchAcceptLimit
 
   val localAddress =
@@ -85,7 +85,7 @@ private[io] class TcpListener(selectorRouter: ActorRef,
     case ResumeAccepting(batchSize) ⇒
       acceptLimit = batchSize
       registration.enableInterest(SelectionKey.OP_ACCEPT)
-
+    // 创建Actor等失败，直接关闭连接进来的Channel
     case FailedRegisterIncoming(socketChannel) ⇒
       log.warning("Could not register incoming connection since selector capacity limit is reached, closing connection")
       try socketChannel.close()
@@ -100,7 +100,7 @@ private[io] class TcpListener(selectorRouter: ActorRef,
       log.debug("Unbound endpoint {}, stopping listener", localAddress)
       context.stop(self)
   }
-
+  // 此处注解，告诉编译器，进行尾递归优化
   @tailrec final def acceptAllPending(registration: ChannelRegistration, limit: Int): Int = {
     val socketChannel =
       if (limit > 0) {
@@ -116,6 +116,7 @@ private[io] class TcpListener(selectorRouter: ActorRef,
         Props(classOf[TcpIncomingConnection], tcp, socketChannel, registry, bind.handler, bind.options, bind.pullMode)
       selectorRouter ! WorkerForCommand(RegisterIncoming(socketChannel), self, props)
       acceptAllPending(registration, limit - 1)
+      // 如果是PullMode每次返回limit否则每次都返回BatchAcceptLimit
     } else if (bind.pullMode) limit else BatchAcceptLimit
   }
 

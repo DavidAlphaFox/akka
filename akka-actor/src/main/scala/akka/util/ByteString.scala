@@ -441,6 +441,8 @@ object CompactByteString {
   /**
    * Creates a new CompactByteString by copying bytes from a ByteBuffer.
    */
+  // 直接将ByteBuffer转化成静态的Array
+  // 然后外部包装一次ByteString
   def apply(bytes: ByteBuffer): CompactByteString = {
     if (bytes.remaining < 1) empty
     else {

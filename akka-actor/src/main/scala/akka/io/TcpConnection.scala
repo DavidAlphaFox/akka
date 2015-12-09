@@ -39,7 +39,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   private[this] var interestedInResume: Option[ActorRef] = None
   var closedMessage: CloseInformation = _ // for ConnectionClosed message in postStop
   private var watchedActor: ActorRef = context.system.deadLetters
-
+  // 关注绑定handler的生死
   def signDeathPact(actor: ActorRef): Unit = {
     unsignDeathPact()
     watchedActor = actor
@@ -52,13 +52,16 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   def writePending = pendingWrite ne EmptyPendingWrite
 
   // STATES
-
+  // 等待用户端告诉我们绑定业务Actor
   /** connection established, waiting for registration from user handler */
   def waitingForRegistration(registration: ChannelRegistration, commander: ActorRef): Receive = {
+    // 收到Actor关联请求
     case Register(handler, keepOpenOnPeerClosed, useResumeWriting) ⇒
       // up to this point we've been watching the commander,
       // but since registration is now complete we only need to watch the handler from here on
       if (handler != commander) {
+        //如果两个Actor不一样取消原先的关注
+        //关注新的Actor
         context.unwatch(commander)
         context.watch(handler)
       }
@@ -68,8 +71,10 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
 
       // if we have resumed reading from pullMode while waiting for Register then register OP_READ interest
       if (pullMode && !readingSuspended) resumeReading(info)
+      // 直接进行读操作
       doRead(info, None) // immediately try reading, pullMode is handled by readingSuspended
       context.setReceiveTimeout(Duration.Undefined)
+      // 转换状态为connected
       context.become(connected(info))
 
     case ResumeReading ⇒
@@ -198,7 +203,8 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
         log.debug("Could not enable TcpNoDelay: {}", e.getMessage)
     }
     options.foreach(_.afterConnect(channel.socket))
-
+    // 向handler发送连接成功的消息
+    // 包含远程地址和本地地址
     commander ! Connected(
       channel.socket.getRemoteSocketAddress.asInstanceOf[InetSocketAddress],
       channel.socket.getLocalSocketAddress.asInstanceOf[InetSocketAddress])
@@ -221,7 +227,9 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   }
 
   def doRead(info: ConnectionInfo, closeCommander: Option[ActorRef]): Unit =
+    // pullMode会影响readingSuspended
     if (!readingSuspended) {
+      //进行尾递归优化
       @tailrec def innerRead(buffer: ByteBuffer, remainingLimit: Int): ReadResult =
         if (remainingLimit > 0) {
           // never read more than the configured limit
@@ -232,10 +240,15 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
           buffer.flip()
 
           if (TraceLogging) log.debug("Read [{}] bytes.", readBytes)
+          // 读取成功，立刻向业务Actor发送数据
           if (readBytes > 0) info.handler ! Received(ByteString(buffer))
 
           readBytes match {
+            // 当readBytes 正好匹配maxBufferSpace的时候，继续回调
+            // 此处使用``用来表明需要进行求值，称为stable identifier
+            // 不看语法spec，绝对是被坑
             case `maxBufferSpace` ⇒ if (pullMode) MoreDataWaiting else innerRead(buffer, remainingLimit - maxBufferSpace)
+            // 当readBytes 大于且等于0，并且没有匹配maxBufferSpace说明读完了
             case x if x >= 0      ⇒ AllRead
             case -1               ⇒ EndOfStream
             case _ ⇒
@@ -246,8 +259,12 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
       val buffer = bufferPool.acquire()
       try innerRead(buffer, ReceivedMessageSizeLimit) match {
         case AllRead ⇒
+          // 都读完的时候，直接在selector上注册channel
+          // 当selector发现channel有数据，会立刻向该Actor发送ChannelReadable
           if (!pullMode) info.registration.enableInterest(OP_READ)
         case MoreDataWaiting ⇒
+          // 还没有读取玩，向自己发送ChannelReadable消息
+          // 当我们收到ChannelReadable消息之后，立刻发起一次读取
           if (!pullMode) self ! ChannelReadable
         case EndOfStream if channel.socket.isOutputShutdown ⇒
           if (TraceLogging) log.debug("Read returned end-of-stream, our side already closed")

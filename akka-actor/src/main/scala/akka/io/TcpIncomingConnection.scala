@@ -24,10 +24,12 @@ private[io] class TcpIncomingConnection(_tcp: TcpExt,
   extends TcpConnection(_tcp, _channel, readThrottling) {
 
   signDeathPact(bindHandler)
-
+  // 注册自己
   registry.register(channel, initialOps = 0)
 
   def receive = {
+    // 收到注册成功的消息
+    // 进行上下文转换
     case registration: ChannelRegistration ⇒ completeConnect(registration, bindHandler, options)
   }
 }
