@@ -19,9 +19,11 @@ import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 import scala.concurrent.forkjoin.{ ForkJoinPool, ForkJoinTask }
 import scala.util.control.NonFatal
-
+// 定义Envelope的case class
+// 其中包含message和发送者的Actor
 final case class Envelope private (val message: Any, val sender: ActorRef)
-
+// Message的内容不能为空
+// 并且要显示指定ActorSystem
 object Envelope {
   def apply(message: Any, sender: ActorRef, system: ActorSystem): Envelope = {
     if (message == null) throw new InvalidMessageException("Message is null")
