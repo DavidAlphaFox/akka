@@ -54,6 +54,7 @@ import akka.util.Helpers.ConfigOps
  * @param clock The clock, returning current time in milliseconds, but can be faked for testing
  *   purposes. It is only used for measuring intervals (duration).
  */
+// Akka集群的节点异常检测器
 class PhiAccrualFailureDetector(
   val threshold: Double,
   val maxSampleSize: Int,
@@ -223,10 +224,11 @@ private[akka] case class HeartbeatHistory private (
   def variance: Double = (squaredIntervalSum.toDouble / intervals.size) - (mean * mean)
 
   def stdDeviation: Double = math.sqrt(variance)
-
+// 保持一定数量的心跳记录
   @tailrec
   final def :+(interval: Long): HeartbeatHistory = {
     if (intervals.size < maxSampleSize)
+      // 返回一个新的HeartbeatHistory类
       HeartbeatHistory(
         maxSampleSize,
         intervals = intervals :+ interval,
@@ -244,3 +246,12 @@ private[akka] case class HeartbeatHistory private (
 
   private def pow2(x: Long) = x * x
 }
+/**
+  *  心跳的机制一般有两种：
+  *  第一种：
+  *   定时间心跳，在这个心跳事件段内，Client侧写出通道没有任何数据写出，那么发布一个心跳包给服务侧
+  *
+  *  第二种：
+  *   变长时间心跳，根据心跳历史进行计算，这样即便在链路传输能力不对等的集群中，也会很好的判定对方是不是离线了
+  *
+  */
